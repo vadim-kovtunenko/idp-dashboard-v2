@@ -1,0 +1,1 @@
+"""IDP dashboard application package."""

@@ -1,0 +1,14 @@
+{
+  "records": [
+    { "network_segment": "alpha", "source": "KA", "value": 210 },
+    { "network_segment": "alpha", "source": "SberHelp", "value": 96 },
+    { "network_segment": "alpha", "source": "ECM", "value": 164 },
+    { "network_segment": "alpha", "source": "IDP Studio", "value": 72 },
+    { "network_segment": "alpha", "source": "K+", "value": 38 },
+    { "network_segment": "alpha", "source": "Custom_source", "value": 121 },
+    { "network_segment": "sigma", "source": "M-App", "value": 144 },
+    { "network_segment": "sigma", "source": "ECM", "value": 67 },
+    { "network_segment": "sigma", "source": "IDP Studio", "value": 109 },
+    { "network_segment": "sigma", "source": "Custom_source", "value": 53 }
+  ]
+}

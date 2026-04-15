@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IDP Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/dashboard.css') }}" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div class="brand-copy">
+            <span class="brand-name">IDP Dashboard</span>
+            <span class="brand-subtitle">Reference-driven MVP</span>
+          </div>
+        </div>
+
+        <nav class="topbar-tabs" aria-label="Основные вкладки" role="tablist">
+          <button
+            id="tab-dashboard"
+            type="button"
+            class="topbar-tab is-active"
+            data-tab-target="dashboard"
+            role="tab"
+            aria-controls="panel-dashboard"
+            aria-selected="true"
+          >
+            Dashboard
+          </button>
+          <button
+            id="tab-ui-kit"
+            type="button"
+            class="topbar-tab"
+            data-tab-target="ui-kit"
+            role="tab"
+            aria-controls="panel-ui-kit"
+            aria-selected="false"
+          >
+            UI Kit
+          </button>
+        </nav>
+
+        <div class="topbar-actions">
+          <span class="topbar-pill">localhost</span>
+          <span class="topbar-pill topbar-pill-accent">2 tabs</span>
+          <span class="topbar-avatar">ID</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-noise"></div>
+
+    <main class="dashboard-page">
+      <section
+        id="panel-dashboard"
+        class="page-panel is-active"
+        data-tab-panel="dashboard"
+        role="tabpanel"
+        aria-labelledby="tab-dashboard"
+      >
+        <h1 class="sr-only">Продуктовый дашборд</h1>
+        <section class="dashboard-grid dashboard-grid-tiles">
+          {% for widget in widget_configs %}
+            {% include "components/widget_card.html" %}
+          {% endfor %}
+        </section>
+      </section>
+
+      <section
+        id="panel-ui-kit"
+        class="page-panel"
+        data-tab-panel="ui-kit"
+        role="tabpanel"
+        aria-labelledby="tab-ui-kit"
+        hidden
+      >
+        <section class="kit-hero kit-card">
+          <p class="hero-eyebrow">UI Kit</p>
+          <h1>UI Kit</h1>
+          <p class="hero-copy">
+            Живой набор токенов и компонентов прямо внутри дашборда. Здесь фиксируются
+            визуальные примитивы, на которые дальше можно опираться при развитии новых
+            экранов и состояний.
+          </p>
+        </section>
+
+        <section class="kit-grid">
+          <article class="kit-card kit-span-7">
+            <div class="kit-section-header">
+              <div>
+                <p class="widget-kicker">Palette</p>
+                <h2>Цветовые токены</h2>
+              </div>
+              <p class="widget-subtitle">Контрастная пара ink + mist и холодный cyan для акцентов.</p>
+            </div>
+            <div class="swatch-grid">
+              <div class="swatch">
+                <span class="swatch-preview swatch-ink"></span>
+                <strong>Ink</strong>
+                <span>#0d0d10</span>
+              </div>
+              <div class="swatch">
+                <span class="swatch-preview swatch-paper"></span>
+                <strong>Paper</strong>
+                <span>#ffffff</span>
+              </div>
+              <div class="swatch">
+                <span class="swatch-preview swatch-mist"></span>
+                <strong>Mist</strong>
+                <span>#f3f5f6</span>
+              </div>
+              <div class="swatch">
+                <span class="swatch-preview swatch-accent"></span>
+                <strong>Cyan</strong>
+                <span>#9edceb</span>
+              </div>
+              <div class="swatch">
+                <span class="swatch-preview swatch-accent-soft"></span>
+                <strong>Powder</strong>
+                <span>#d9f4fb</span>
+              </div>
+              <div class="swatch">
+                <span class="swatch-preview swatch-line"></span>
+                <strong>Line</strong>
+                <span>#d8dde3</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="kit-card kit-span-5">
+            <div class="kit-section-header">
+              <div>
+                <p class="widget-kicker">Typography</p>
+                <h2>Шкала текста</h2>
+              </div>
+            </div>
+            <div class="type-stack">
+              <div class="type-specimen">
+                <span class="type-label">Display / 52</span>
+                <strong class="type-display">Dashboard</strong>
+              </div>
+              <div class="type-specimen">
+                <span class="type-label">Title / 28</span>
+                <strong class="type-title">Section heading</strong>
+              </div>
+              <div class="type-specimen">
+                <span class="type-label">Body / 16</span>
+                <p>
+                  Базовый текст должен оставаться плотным, но спокойным: короткие абзацы,
+                  мягкий серый цвет и комфортная строка.
+                </p>
+              </div>
+            </div>
+          </article>
+
+          <article class="kit-card kit-span-6">
+            <div class="kit-section-header">
+              <div>
+                <p class="widget-kicker">Navigation</p>
+                <h2>Табы и пиллы</h2>
+              </div>
+            </div>
+            <div class="sample-tabs" aria-hidden="true">
+              <span class="sample-tab is-active">Dashboard</span>
+              <span class="sample-tab">UI Kit</span>
+            </div>
+            <div class="pill-row">
+              <span class="legend-pill legend-pill-dark">Active</span>
+              <span class="legend-pill legend-pill-accent">Accent</span>
+              <span class="legend-pill">Secondary</span>
+            </div>
+          </article>
+
+          <article class="kit-card kit-span-6">
+            <div class="kit-section-header">
+              <div>
+                <p class="widget-kicker">Actions</p>
+                <h2>Кнопки</h2>
+              </div>
+            </div>
+            <div class="button-row">
+              <button type="button" class="sample-button sample-button-primary">Primary</button>
+              <button type="button" class="sample-button sample-button-secondary">Secondary</button>
+              <button type="button" class="sample-button sample-button-ghost">Ghost</button>
+            </div>
+          </article>
+
+          <article class="kit-card kit-span-7">
+            <div class="kit-section-header">
+              <div>
+                <p class="widget-kicker">Cards</p>
+                <h2>Статусные карточки</h2>
+              </div>
+            </div>
+            <div class="stat-card-grid">
+              <div class="stat-card stat-card-soft">
+                <span class="summary-label">Soft card</span>
+                <strong>$2,846</strong>
+                <span>Total staked</span>
+              </div>
+              <div class="stat-card stat-card-dark">
+                <span class="summary-label">Dark card</span>
+                <strong>$1,242</strong>
+                <span>Total rewards</span>
+              </div>
+              <div class="stat-card stat-card-accent">
+                <span class="summary-label">Accent card</span>
+                <strong>93.45</strong>
+                <span>Available balance</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="kit-card kit-span-5">
+            <div class="kit-section-header">
+              <div>
+                <p class="widget-kicker">Forms</p>
+                <h2>Поля и селекты</h2>
+              </div>
+            </div>
+            <div class="input-stack">
+              <label class="sample-field">
+                <span>Направление</span>
+                <select class="filter-select">
+                  <option>GigaSearch</option>
+                  <option>GigaQuery</option>
+                  <option>Summarization</option>
+                </select>
+              </label>
+              <label class="sample-field">
+                <span>Период</span>
+                <input class="filter-month" type="month" value="{{ dashboard_meta.default_month_range.start }}" />
+              </label>
+            </div>
+          </article>
+
+          <article class="kit-card kit-span-12">
+            <div class="kit-section-header">
+              <div>
+                <p class="widget-kicker">Guidelines</p>
+                <h2>Принципы использования</h2>
+              </div>
+            </div>
+            <ul class="guideline-list">
+              <li>Использовать тёмную верхнюю навигацию как постоянный якорь для структуры продукта.</li>
+              <li>Сохранять светлый холст для аналитики, чтобы графики и таблицы читались без визуального шума.</li>
+              <li>Применять cyan только как акцент: активные состояния, secondary highlights, ключевые CTA.</li>
+              <li>Карточки, фильтры и легенды строить на единой системе радиусов, бордеров и теней.</li>
+            </ul>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script id="dashboard-payload" type="application/json">{{ dashboard_payload_json | safe }}</script>
+    <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+    <script defer src="{{ url_for('static', path='js/dashboard.js') }}"></script>
+  </body>
+</html>

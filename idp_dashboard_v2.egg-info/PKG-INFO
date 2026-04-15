@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: idp-dashboard-v2
+Version: 0.1.0
+Summary: Local MVP product dashboard for the RAG platform.
+Requires-Python: >=3.12
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: jinja2>=3.1.4
+Requires-Dist: pydantic>=2.11.0
+Requires-Dist: uvicorn[standard]>=0.34.0
+Provides-Extra: dev
+Requires-Dist: httpx>=0.28.0; extra == "dev"
+Requires-Dist: pytest>=8.3.0; extra == "dev"
