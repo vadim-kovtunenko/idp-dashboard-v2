@@ -25,12 +25,17 @@ const monthFormatter = new Intl.DateTimeFormat("ru-RU", {
   year: "2-digit",
 });
 
+const integerFormatter = new Intl.NumberFormat("ru-RU");
+
 function findWidgetConfig(widgetId) {
   return dashboardPayload.widget_configs.find((item) => item.widget_id === widgetId);
 }
 
 function formatMonth(month) {
-  return monthFormatter.format(new Date(`${month}-01T12:00:00`)).replace(".", "");
+  return monthFormatter
+    .format(new Date(`${month}-01T12:00:00`))
+    .replace(/\./g, "")
+    .replace(" г", "");
 }
 
 function formatMillions(value) {
@@ -44,6 +49,10 @@ function formatMillions(value) {
 
   const millions = value / 1_000_000;
   return Number.isInteger(millions) ? `${millions}M` : `${millions.toFixed(1)}M`;
+}
+
+function formatOverviewValue(widgetId, value) {
+  return widgetId === "calls_count" ? formatMillions(value) : integerFormatter.format(value);
 }
 
 function niceUpperBound(maxValue) {
@@ -64,9 +73,23 @@ class DashboardWidget {
     this.chart = null;
     this.resizeObserver = null;
     this.summaryNode = element.querySelector("[data-summary-value]");
+    this.overviewCardNode = document.querySelector(`[data-overview-widget="${this.widgetId}"]`);
+    this.widgetTrendNode = element.querySelector("[data-widget-trend-badge]");
     this.chartNode = element.querySelector("[data-chart]");
     this.emptyStateNode = element.querySelector("[data-empty-state]");
     this.monthRangeNode = element.querySelector("[data-month-range]");
+    this.periodPresetButtons = Array.from(element.querySelectorAll("[data-period-preset]"));
+    this.customSelectNodes = Object.fromEntries(
+      Array.from(element.querySelectorAll("[data-custom-select-key]")).map((node) => [
+        node.dataset.customSelectKey,
+        {
+          root: node,
+          trigger: node.querySelector("[data-custom-select-trigger]"),
+          label: node.querySelector("[data-custom-select-label]"),
+          menu: node.querySelector("[data-custom-select-menu]"),
+        },
+      ]),
+    );
     this.selectNodes = Object.fromEntries(
       Array.from(element.querySelectorAll("select[data-filter-key]")).map((node) => [
         node.dataset.filterKey,
@@ -79,6 +102,8 @@ class DashboardWidget {
         node,
       ]),
     );
+    this.handleDocumentPointerDown = this.onDocumentPointerDown.bind(this);
+    this.handleDocumentKeydown = this.onDocumentKeydown.bind(this);
   }
 
   init() {
@@ -90,6 +115,11 @@ class DashboardWidget {
     this.syncDependentFilters();
     this.bindEvents();
     this.syncDomState();
+
+    if (Object.keys(this.customSelectNodes).length) {
+      document.addEventListener("pointerdown", this.handleDocumentPointerDown);
+      document.addEventListener("keydown", this.handleDocumentKeydown);
+    }
 
     if (window.echarts) {
       this.chart = window.echarts.init(this.chartNode);
@@ -117,11 +147,48 @@ class DashboardWidget {
       });
     });
 
-    this.element.querySelectorAll("button[data-filter-key]").forEach((button) => {
+    this.periodPresetButtons.forEach((button) => {
       button.addEventListener("click", () => {
-        this.updateFilter(button.dataset.filterKey, button.dataset.filterValue);
+        this.updateFilter("period_mode", button.dataset.periodPreset);
       });
     });
+
+    Object.entries(this.customSelectNodes).forEach(([key, customSelect]) => {
+      customSelect.trigger?.addEventListener("click", (event) => {
+        event.preventDefault();
+        this.toggleCustomSelect(key);
+      });
+
+      customSelect.menu?.addEventListener("click", (event) => {
+        const optionButton = event.target.closest("[data-option-value]");
+        if (!optionButton) {
+          return;
+        }
+
+        this.updateFilter(key, optionButton.dataset.optionValue);
+        this.closeCustomSelect(key);
+        customSelect.trigger?.focus();
+      });
+
+      customSelect.root?.addEventListener("keydown", (event) => {
+        this.handleCustomSelectKeydown(key, event);
+      });
+    });
+  }
+
+  onDocumentPointerDown(event) {
+    const clickedInsideCustomSelect = Object.values(this.customSelectNodes).some(({ root }) =>
+      root.contains(event.target),
+    );
+    if (!clickedInsideCustomSelect) {
+      this.closeAllCustomSelects();
+    }
+  }
+
+  onDocumentKeydown(event) {
+    if (event.key === "Escape") {
+      this.closeAllCustomSelects();
+    }
   }
 
   resolveOptions(filter) {
@@ -146,18 +213,26 @@ class DashboardWidget {
   }
 
   syncDomState() {
-    const segmentFilter = this.widget.filters.find((filter) => filter.key === "segment");
-    if (segmentFilter && this.selectNodes.segment) {
-      const options = this.resolveOptions(segmentFilter);
-      this.selectNodes.segment.innerHTML = options
-        .map(
-          (option) =>
-            `<option value="${option.value}" ${
-              option.value === this.state.segment ? "selected" : ""
-            }>${option.label}</option>`,
-        )
-        .join("");
-    }
+    this.widget.filters
+      .filter((filter) => ["select", "toggle", "period"].includes(filter.control))
+      .forEach((filter) => {
+        const node = this.selectNodes[filter.key];
+        if (!node) {
+          return;
+        }
+
+        const options = this.resolveOptions(filter);
+        node.innerHTML = options
+          .map(
+            (option) =>
+              `<option value="${option.value}" ${
+                this.state[filter.key] === option.value ? "selected" : ""
+              }>${option.label}</option>`,
+          )
+          .join("");
+
+        this.syncCustomSelect(filter.key, options);
+      });
 
     Object.entries(this.selectNodes).forEach(([key, node]) => {
       if (key in this.state) {
@@ -171,13 +246,148 @@ class DashboardWidget {
       }
     });
 
-    this.element.querySelectorAll("button[data-filter-key]").forEach((button) => {
-      const isActive = this.state[button.dataset.filterKey] === button.dataset.filterValue;
-      button.classList.toggle("is-active", isActive);
-    });
-
     if (this.monthRangeNode) {
       this.monthRangeNode.classList.toggle("is-hidden", this.state.period_mode !== "custom");
+    }
+
+    this.periodPresetButtons.forEach((button) => {
+      const isActive = button.dataset.periodPreset === this.state.period_mode;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
+  }
+
+  syncCustomSelect(key, options) {
+    const customSelect = this.customSelectNodes[key];
+    if (!customSelect) {
+      return;
+    }
+
+    const selectedOption = options.find((option) => option.value === this.state[key]) ?? options[0] ?? null;
+    customSelect.label.textContent = selectedOption?.label ?? "Нет опций";
+    customSelect.trigger.disabled = options.length === 0;
+    customSelect.trigger.setAttribute("aria-expanded", "false");
+    customSelect.root.classList.remove("is-open");
+
+    customSelect.menu.innerHTML = options.length
+      ? options
+          .map((option) => {
+            const isSelected = option.value === selectedOption?.value;
+            return `
+              <button
+                type="button"
+                class="custom-select-option ${isSelected ? "is-selected" : ""}"
+                role="option"
+                aria-selected="${isSelected}"
+                data-option-value="${option.value}"
+                tabindex="-1"
+              >
+                <span>${option.label}</span>
+              </button>
+            `;
+          })
+          .join("")
+      : '<div class="custom-select-empty">Нет доступных значений</div>';
+
+    this.closeCustomSelect(key);
+  }
+
+  closeCustomSelect(key) {
+    const customSelect = this.customSelectNodes[key];
+    if (!customSelect) {
+      return;
+    }
+
+    customSelect.root.classList.remove("is-open");
+    customSelect.menu.classList.add("is-hidden");
+    customSelect.trigger.setAttribute("aria-expanded", "false");
+  }
+
+  closeAllCustomSelects(exceptKey = null) {
+    Object.keys(this.customSelectNodes).forEach((key) => {
+      if (key !== exceptKey) {
+        this.closeCustomSelect(key);
+      }
+    });
+  }
+
+  openCustomSelect(key) {
+    const customSelect = this.customSelectNodes[key];
+    if (!customSelect || customSelect.trigger.disabled) {
+      return;
+    }
+
+    this.closeAllCustomSelects(key);
+    customSelect.root.classList.add("is-open");
+    customSelect.menu.classList.remove("is-hidden");
+    customSelect.trigger.setAttribute("aria-expanded", "true");
+  }
+
+  toggleCustomSelect(key) {
+    const customSelect = this.customSelectNodes[key];
+    if (!customSelect) {
+      return;
+    }
+
+    if (customSelect.root.classList.contains("is-open")) {
+      this.closeCustomSelect(key);
+      return;
+    }
+
+    this.openCustomSelect(key);
+  }
+
+  handleCustomSelectKeydown(key, event) {
+    const customSelect = this.customSelectNodes[key];
+    if (!customSelect) {
+      return;
+    }
+
+    const optionButtons = Array.from(customSelect.menu.querySelectorAll("[data-option-value]"));
+    const selectedButton = customSelect.menu.querySelector(".is-selected");
+    const activeIndex = optionButtons.findIndex((button) => button === document.activeElement);
+
+    if (event.key === "Escape") {
+      this.closeCustomSelect(key);
+      customSelect.trigger.focus();
+      return;
+    }
+
+    if (
+      event.target === customSelect.trigger &&
+      (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ")
+    ) {
+      event.preventDefault();
+      this.openCustomSelect(key);
+      (selectedButton ?? optionButtons[0])?.focus();
+      return;
+    }
+
+    if (!customSelect.root.classList.contains("is-open")) {
+      return;
+    }
+
+    if (event.key === "Tab") {
+      this.closeCustomSelect(key);
+      return;
+    }
+
+    if (!optionButtons.length) {
+      return;
+    }
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const direction = event.key === "ArrowDown" ? 1 : -1;
+      const fallbackIndex = optionButtons.findIndex((button) => button === selectedButton);
+      const startIndex = activeIndex >= 0 ? activeIndex : Math.max(fallbackIndex, 0);
+      const nextIndex = (startIndex + direction + optionButtons.length) % optionButtons.length;
+      optionButtons[nextIndex]?.focus();
+    }
+
+    if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-option-value]")) {
+      event.preventDefault();
+      event.target.click();
     }
   }
 
@@ -188,11 +398,6 @@ class DashboardWidget {
       this.syncDependentFilters();
     }
 
-    if (key === "period_mode" && value !== "custom") {
-      this.state.date_from = this.meta.default_month_range.start;
-      this.state.date_to = this.meta.default_month_range.end;
-    }
-
     if (key === "date_from" && !this.state.date_to) {
       this.state.date_to = value;
     }
@@ -201,6 +406,7 @@ class DashboardWidget {
       this.state.date_from = value;
     }
 
+    this.closeAllCustomSelects();
     this.syncDomState();
     this.render();
   }
@@ -219,6 +425,15 @@ class DashboardWidget {
         return scopedMonths;
       }
     }
+
+    if (this.state.period_mode === "last_3_months") {
+      return months.slice(-3);
+    }
+
+    if (this.state.period_mode === "last_6_months") {
+      return months.slice(-6);
+    }
+
     return months.slice(-12);
   }
 
@@ -307,6 +522,70 @@ class DashboardWidget {
     return `${formatMonth(latestPoint.month)}: ${value}`;
   }
 
+  buildChangeModel(currentValue, previousValue) {
+    const delta = currentValue - previousValue;
+    const percentChange =
+      previousValue === 0 ? (currentValue === 0 ? 0 : 100) : Math.abs((delta / previousValue) * 100);
+    const direction = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+    const arrow = direction === "up" ? "↑" : direction === "down" ? "↓" : "→";
+
+    return {
+      currentValue,
+      previousValue,
+      direction,
+      arrow,
+      percentLabel: `${percentChange.toFixed(1)}%`,
+    };
+  }
+
+  monthlyTrendModel() {
+    const points = this.filteredMonthlySeries();
+    const latest = points[points.length - 1];
+    if (!latest) {
+      return null;
+    }
+
+    const previous = points[points.length - 2] ?? latest;
+    return {
+      latestValue: latest.value,
+      latestMonth: latest.month,
+      previousMonth: previous.month,
+      ...this.buildChangeModel(latest.value, previous.value),
+    };
+  }
+
+  ticketsTrendModel() {
+    const model = this.ticketChartModel();
+    if (!model.series.length) {
+      return null;
+    }
+
+    if (this.state.sprint_view === "overlay" && model.series.length >= 2) {
+      const currentValue = model.series[0].data[model.series[0].data.length - 1] ?? 0;
+      const previousValue = model.series[1].data[model.series[1].data.length - 1] ?? currentValue;
+      return this.buildChangeModel(currentValue, previousValue);
+    }
+
+    const activeSeries = model.series[0].data;
+    const currentValue = activeSeries[activeSeries.length - 1];
+    if (currentValue === undefined) {
+      return null;
+    }
+
+    const previousValue = activeSeries[activeSeries.length - 2] ?? currentValue;
+    return this.buildChangeModel(currentValue, previousValue);
+  }
+
+  widgetTrendModel() {
+    if (["initiatives_created", "initiatives_in_prod", "calls_count"].includes(this.widgetId)) {
+      return this.monthlyTrendModel();
+    }
+    if (this.widgetId === "tickets_created") {
+      return this.ticketsTrendModel();
+    }
+    return null;
+  }
+
   lineChartOption() {
     const points = this.filteredMonthlySeries();
     if (!points.length) {
@@ -361,7 +640,7 @@ class DashboardWidget {
         {
           name: this.widget.title,
           type: "line",
-          smooth: true,
+          smooth: false,
           symbol: "circle",
           showSymbol: false,
           symbolSize: 6,
@@ -476,7 +755,7 @@ class DashboardWidget {
         return {
           name: series.name,
           type: "line",
-          smooth: true,
+          smooth: false,
           showSymbol: false,
           symbolSize: 6,
           lineStyle: {
@@ -514,6 +793,56 @@ class DashboardWidget {
     return this.lineChartOption();
   }
 
+  syncOverviewCard() {
+    const overviewMetricIds = ["initiatives_created", "initiatives_in_prod", "calls_count"];
+    if (!this.overviewCardNode || !overviewMetricIds.includes(this.widgetId)) {
+      return;
+    }
+
+    const trendModel = this.monthlyTrendModel();
+    if (!trendModel) {
+      return;
+    }
+    const changeBadge = this.overviewCardNode.querySelector("[data-overview-change-badge]");
+
+    this.overviewCardNode.querySelector("[data-overview-value]").textContent = formatOverviewValue(
+      this.widgetId,
+      trendModel.latestValue,
+    );
+    this.overviewCardNode.querySelector("[data-overview-change]").textContent = trendModel.percentLabel;
+    this.overviewCardNode.querySelector("[data-overview-arrow]").textContent = trendModel.arrow;
+
+    changeBadge.classList.remove(
+      "overview-card-change-up",
+      "overview-card-change-down",
+      "overview-card-change-flat",
+    );
+    changeBadge.classList.add(`overview-card-change-${trendModel.direction}`);
+  }
+
+  syncWidgetTrendBadge() {
+    if (!this.widgetTrendNode) {
+      return;
+    }
+
+    const trendModel = this.widgetTrendModel();
+    if (!trendModel) {
+      this.widgetTrendNode.classList.add("is-hidden");
+      return;
+    }
+
+    this.widgetTrendNode.querySelector("[data-widget-trend-value]").textContent = trendModel.percentLabel;
+    this.widgetTrendNode.querySelector("[data-widget-trend-arrow]").textContent = trendModel.arrow;
+
+    this.widgetTrendNode.classList.remove(
+      "is-hidden",
+      "widget-trend-badge-up",
+      "widget-trend-badge-down",
+      "widget-trend-badge-flat",
+    );
+    this.widgetTrendNode.classList.add(`widget-trend-badge-${trendModel.direction}`);
+  }
+
   showEmptyState(message) {
     this.emptyStateNode.textContent = message;
     this.emptyStateNode.classList.remove("is-hidden");
@@ -527,6 +856,9 @@ class DashboardWidget {
     if (this.summaryNode) {
       this.summaryNode.textContent = this.summaryValue();
     }
+
+    this.syncOverviewCard();
+    this.syncWidgetTrendBadge();
 
     if (!this.chart) {
       return;

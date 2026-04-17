@@ -132,7 +132,18 @@ MONTHLY_AXIS = {
 
 
 def build_widget_registry() -> list[WidgetConfig]:
-    monthly_filters = [
+    monthly_period_filter = FilterConfig(
+        key="period_mode",
+        label="Период",
+        control="period",
+        default="last_12_months",
+        options=[
+            FilterOption(value="last_12_months", label="Последние 12 месяцев"),
+            FilterOption(value="custom", label="Кастомный период"),
+        ],
+    )
+
+    monthly_filters_base = [
         FilterConfig(
             key="direction",
             label="Направление",
@@ -147,26 +158,17 @@ def build_widget_registry() -> list[WidgetConfig]:
             default="common",
             depends_on="direction",
         ),
-        FilterConfig(
-            key="period_mode",
-            label="Период",
-            control="period",
-            default="last_12_months",
-            options=[
-                FilterOption(value="last_12_months", label="Последние 12 месяцев"),
-                FilterOption(value="custom", label="Кастомный период"),
-            ],
-        ),
     ]
+    monthly_filters = [*monthly_filters_base, monthly_period_filter]
 
     return [
         WidgetConfig(
             widget_id="calls_count",
-            title="Количество вызовов",
+            title="Вызовы LLM сервисов",
             chart_type=ChartType.LINE,
             layout_class="widget-tile-wide",
             subtitle="Главный фокусный график. Значения оси Y форматируются в миллионах и подстраиваются под сегмент.",
-            filters=monthly_filters,
+            filters=monthly_filters_base,
             default_state={
                 "direction": Direction.GIGA_SEARCH.value,
                 "segment": "common",
@@ -176,7 +178,7 @@ def build_widget_registry() -> list[WidgetConfig]:
         ),
         WidgetConfig(
             widget_id="source_distribution",
-            title="Распределение по источникам",
+            title="Источники",
             chart_type=ChartType.PIE,
             layout_class="widget-tile",
             subtitle="Структура источников для выбранного сетевого сегмента.",
@@ -196,7 +198,7 @@ def build_widget_registry() -> list[WidgetConfig]:
         ),
         WidgetConfig(
             widget_id="tickets_created",
-            title="Количество заведенных тикетов",
+            title="Тикеты",
             chart_type=ChartType.LINE,
             layout_class="widget-tile",
             subtitle="Можно смотреть текущий, предыдущий или оба спринта на одном графике.",
@@ -204,7 +206,7 @@ def build_widget_registry() -> list[WidgetConfig]:
                 FilterConfig(
                     key="sprint_view",
                     label="Спринт",
-                    control="toggle",
+                    control="select",
                     default="current",
                     options=[
                         FilterOption(value="current", label="Текущий"),
@@ -217,7 +219,7 @@ def build_widget_registry() -> list[WidgetConfig]:
         ),
         WidgetConfig(
             widget_id="initiatives_created",
-            title="Количество заведенных инициатив",
+            title="Заведенные инициативы",
             chart_type=ChartType.LINE,
             layout_class="widget-tile",
             subtitle="Динамика по инициативам с зависимыми фильтрами по направлению.",
@@ -231,7 +233,7 @@ def build_widget_registry() -> list[WidgetConfig]:
         ),
         WidgetConfig(
             widget_id="initiatives_in_prod",
-            title="Количество инициатив в ПРОМе",
+            title="Инициативы в ПРОМе",
             chart_type=ChartType.LINE,
             layout_class="widget-tile",
             subtitle="Те же фильтры, но с отдельной метрикой вывода в прод.",

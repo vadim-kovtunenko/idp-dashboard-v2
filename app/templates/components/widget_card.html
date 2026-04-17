@@ -3,25 +3,120 @@
   data-widget-id="{{ widget.widget_id }}"
   data-chart-type="{{ widget.chart_type }}"
 >
-  <header class="widget-header">
+  <header class="widget-header {% if widget.widget_id == 'calls_count' %}widget-header-has-actions{% endif %}">
     <div class="widget-heading">
       <h2>{{ widget.title }}</h2>
+      <div class="widget-trend-badge is-hidden" data-widget-trend-badge>
+        <span data-widget-trend-value></span>
+        <span class="widget-trend-arrow" data-widget-trend-arrow aria-hidden="true"></span>
+      </div>
     </div>
+    {% if widget.widget_id == "calls_count" %}
+      <div class="widget-header-actions" aria-label="Быстрый выбор периода">
+        <div class="widget-period-presets">
+          <button
+            type="button"
+            class="widget-period-preset {% if widget.default_state.get('period_mode') == 'last_12_months' %}is-active{% endif %}"
+            data-period-preset="last_12_months"
+            aria-pressed="{% if widget.default_state.get('period_mode') == 'last_12_months' %}true{% else %}false{% endif %}"
+          >
+            12m
+          </button>
+          <button
+            type="button"
+            class="widget-period-preset {% if widget.default_state.get('period_mode') == 'last_6_months' %}is-active{% endif %}"
+            data-period-preset="last_6_months"
+            aria-pressed="{% if widget.default_state.get('period_mode') == 'last_6_months' %}true{% else %}false{% endif %}"
+          >
+            6m
+          </button>
+          <button
+            type="button"
+            class="widget-period-preset {% if widget.default_state.get('period_mode') == 'last_3_months' %}is-active{% endif %}"
+            data-period-preset="last_3_months"
+            aria-pressed="{% if widget.default_state.get('period_mode') == 'last_3_months' %}true{% else %}false{% endif %}"
+          >
+            3m
+          </button>
+          <button
+            type="button"
+            class="widget-period-preset {% if widget.default_state.get('period_mode') == 'custom' %}is-active{% endif %}"
+            data-period-preset="custom"
+            aria-pressed="{% if widget.default_state.get('period_mode') == 'custom' %}true{% else %}false{% endif %}"
+          >
+            Custom
+          </button>
+        </div>
+
+        <div
+          class="month-range widget-period-custom {% if widget.default_state.get('period_mode') != 'custom' %}is-hidden{% endif %}"
+          data-month-range
+        >
+          <label class="month-field">
+            <span>С</span>
+            <div class="control-shell">
+              <input
+                class="filter-month"
+                type="month"
+                id="{{ widget.widget_id }}-date_from"
+                data-filter-key="date_from"
+                value="{{ dashboard_meta.default_month_range.start }}"
+                min="{{ dashboard_meta.available_months[0] }}"
+                max="{{ dashboard_meta.available_months[-1] }}"
+              />
+            </div>
+          </label>
+          <label class="month-field">
+            <span>По</span>
+            <div class="control-shell">
+              <input
+                class="filter-month"
+                type="month"
+                id="{{ widget.widget_id }}-date_to"
+                data-filter-key="date_to"
+                value="{{ dashboard_meta.default_month_range.end }}"
+                min="{{ dashboard_meta.available_months[0] }}"
+                max="{{ dashboard_meta.available_months[-1] }}"
+              />
+            </div>
+          </label>
+        </div>
+      </div>
+    {% endif %}
   </header>
 
-  <section class="widget-filters">
+  <section class="chart-shell">
+    <div class="chart-canvas" data-chart></div>
+    <div class="empty-state is-hidden" data-empty-state></div>
+  </section>
+
+  <section class="widget-filters widget-filters-below">
     {% for filter in widget.filters %}
       <div class="filter-field {% if filter.control == 'period' %}filter-field-wide{% endif %}">
-        <label class="filter-label" for="{{ widget.widget_id }}-{{ filter.key }}">{{ filter.label }}</label>
+        <p class="filter-label">{{ filter.label }}</p>
 
-        {% if filter.control == "select" %}
+        {% if filter.control == "select" or filter.control == "toggle" %}
           {% set initial_parent = widget.default_state.get(filter.depends_on) if filter.depends_on else none %}
           {% set initial_options = filter.options_by_parent.get(initial_parent, filter.options) if filter.depends_on else filter.options %}
-          <div class="control-shell control-shell-select">
+          {% set selected_label = namespace(value='') %}
+          {% for option in initial_options %}
+            {% if widget.default_state.get(filter.key) == option.value %}
+              {% set selected_label.value = option.label %}
+            {% endif %}
+          {% endfor %}
+          {% if not selected_label.value and initial_options %}
+            {% set selected_label.value = initial_options[0].label %}
+          {% endif %}
+          <div
+            class="control-shell control-shell-select control-shell-select-custom"
+            data-custom-select-key="{{ filter.key }}"
+          >
             <select
-              class="filter-select"
+              class="filter-select filter-select-native"
               id="{{ widget.widget_id }}-{{ filter.key }}"
               data-filter-key="{{ filter.key }}"
+              tabindex="-1"
+              aria-hidden="true"
             >
               {% for option in initial_options %}
                 <option
@@ -32,33 +127,70 @@
                 </option>
               {% endfor %}
             </select>
-          </div>
-        {% elif filter.control == "toggle" %}
-          <div class="toggle-group" role="tablist" aria-label="{{ filter.label }}">
-            {% for option in filter.options %}
-              <button
-                type="button"
-                class="toggle-pill {% if widget.default_state.get(filter.key) == option.value %}is-active{% endif %}"
-                data-filter-key="{{ filter.key }}"
-                data-filter-value="{{ option.value }}"
-              >
-                {{ option.label }}
-              </button>
-            {% endfor %}
+            <button
+              type="button"
+              class="filter-select-trigger"
+              data-custom-select-trigger
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="{{ widget.widget_id }}-{{ filter.key }}-menu"
+            >
+              <span data-custom-select-label>{{ selected_label.value }}</span>
+            </button>
+            <div
+              class="custom-select-menu is-hidden"
+              id="{{ widget.widget_id }}-{{ filter.key }}-menu"
+              role="listbox"
+              data-custom-select-menu
+            ></div>
           </div>
         {% elif filter.control == "period" %}
           <div class="period-control">
-            <div class="toggle-group" role="tablist" aria-label="Период отображения">
-              {% for option in filter.options %}
-                <button
-                  type="button"
-                  class="toggle-pill {% if widget.default_state.get('period_mode') == option.value %}is-active{% endif %}"
-                  data-filter-key="period_mode"
-                  data-filter-value="{{ option.value }}"
-                >
-                  {{ option.label }}
-                </button>
-              {% endfor %}
+            {% set period_label = namespace(value='') %}
+            {% for option in filter.options %}
+              {% if widget.default_state.get('period_mode') == option.value %}
+                {% set period_label.value = option.label %}
+              {% endif %}
+            {% endfor %}
+            {% if not period_label.value and filter.options %}
+              {% set period_label.value = filter.options[0].label %}
+            {% endif %}
+            <div
+              class="control-shell control-shell-select control-shell-select-custom"
+              data-custom-select-key="period_mode"
+            >
+              <select
+                class="filter-select filter-select-native"
+                id="{{ widget.widget_id }}-period_mode"
+                data-filter-key="period_mode"
+                tabindex="-1"
+                aria-hidden="true"
+              >
+                {% for option in filter.options %}
+                  <option
+                    value="{{ option.value }}"
+                    {% if widget.default_state.get('period_mode') == option.value %}selected{% endif %}
+                  >
+                    {{ option.label }}
+                  </option>
+                {% endfor %}
+              </select>
+              <button
+                type="button"
+                class="filter-select-trigger"
+                data-custom-select-trigger
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-controls="{{ widget.widget_id }}-period_mode-menu"
+              >
+                <span data-custom-select-label>{{ period_label.value }}</span>
+              </button>
+              <div
+                class="custom-select-menu is-hidden"
+                id="{{ widget.widget_id }}-period_mode-menu"
+                role="listbox"
+                data-custom-select-menu
+              ></div>
             </div>
             <div
               class="month-range {% if widget.default_state.get('period_mode') != 'custom' %}is-hidden{% endif %}"
@@ -97,10 +229,5 @@
         {% endif %}
       </div>
     {% endfor %}
-  </section>
-
-  <section class="chart-shell">
-    <div class="chart-canvas" data-chart></div>
-    <div class="empty-state is-hidden" data-empty-state></div>
   </section>
 </article>

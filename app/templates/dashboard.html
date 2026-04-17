@@ -61,6 +61,30 @@
         aria-labelledby="tab-dashboard"
       >
         <h1 class="sr-only">Продуктовый дашборд</h1>
+        <section class="dashboard-overview" aria-label="Ключевые показатели">
+          {% for card in overview_cards %}
+            <article
+              class="overview-card overview-card-{{ card.tone }}"
+              data-overview-widget="{{ card.widget_id }}"
+            >
+              <div class="overview-card-header">
+                <p class="summary-label">{{ card.label }}</p>
+              </div>
+              <div class="overview-card-main">
+                <strong data-overview-value>{{ card.value }}</strong>
+                <span
+                  class="overview-card-change overview-card-change-{{ card.change_direction }}"
+                  data-overview-change-badge
+                >
+                  <span data-overview-change>{{ card.change_label }}</span>
+                  <span class="overview-card-arrow" data-overview-arrow aria-hidden="true">
+                    {{ card.change_arrow }}
+                  </span>
+                </span>
+              </div>
+            </article>
+          {% endfor %}
+        </section>
         <section class="dashboard-grid dashboard-grid-tiles">
           {% for widget in widget_configs %}
             {% include "components/widget_card.html" %}

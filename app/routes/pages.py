@@ -21,6 +21,7 @@ async def dashboard_page(request: Request) -> HTMLResponse:
         name="dashboard.html",
         context={
             "dashboard_payload_json": json.dumps(payload, ensure_ascii=False),
+            "overview_cards": payload["overview_cards"],
             "widget_configs": payload["widget_configs"],
             "dashboard_meta": payload["meta"],
         },
