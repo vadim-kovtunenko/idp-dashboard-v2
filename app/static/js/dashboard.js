@@ -292,6 +292,45 @@ class DashboardWidget {
     this.closeCustomSelect(key);
   }
 
+  syncOpenSelectState() {
+    let hasOpenSelect = false;
+
+    Object.values(this.customSelectNodes).forEach((customSelect) => {
+      const isOpen = customSelect.root.classList.contains("is-open");
+      const filterField = customSelect.root.closest(".filter-field");
+      filterField?.classList.toggle("has-open-select", isOpen);
+      hasOpenSelect ||= isOpen;
+    });
+
+    this.element.classList.toggle("has-open-select", hasOpenSelect);
+  }
+
+  updateCustomSelectPlacement(key) {
+    const customSelect = this.customSelectNodes[key];
+    if (!customSelect) {
+      return;
+    }
+
+    customSelect.root.classList.remove("opens-upward");
+    customSelect.menu.style.maxHeight = "";
+
+    if (customSelect.menu.classList.contains("is-hidden")) {
+      return;
+    }
+
+    const viewportPadding = 12;
+    const menuOffset = 10;
+    const triggerRect = customSelect.trigger.getBoundingClientRect();
+    const menuHeight = customSelect.menu.scrollHeight;
+    const spaceBelow = window.innerHeight - triggerRect.bottom - viewportPadding;
+    const spaceAbove = triggerRect.top - viewportPadding;
+    const shouldOpenUpward = menuHeight > spaceBelow && spaceAbove > spaceBelow;
+    const availableSpace = shouldOpenUpward ? spaceAbove : spaceBelow;
+
+    customSelect.root.classList.toggle("opens-upward", shouldOpenUpward);
+    customSelect.menu.style.maxHeight = `${Math.max(availableSpace - menuOffset, 0)}px`;
+  }
+
   closeCustomSelect(key) {
     const customSelect = this.customSelectNodes[key];
     if (!customSelect) {
@@ -299,8 +338,11 @@ class DashboardWidget {
     }
 
     customSelect.root.classList.remove("is-open");
+    customSelect.root.classList.remove("opens-upward");
     customSelect.menu.classList.add("is-hidden");
+    customSelect.menu.style.maxHeight = "";
     customSelect.trigger.setAttribute("aria-expanded", "false");
+    this.syncOpenSelectState();
   }
 
   closeAllCustomSelects(exceptKey = null) {
@@ -321,6 +363,8 @@ class DashboardWidget {
     customSelect.root.classList.add("is-open");
     customSelect.menu.classList.remove("is-hidden");
     customSelect.trigger.setAttribute("aria-expanded", "true");
+    this.updateCustomSelectPlacement(key);
+    this.syncOpenSelectState();
   }
 
   toggleCustomSelect(key) {
